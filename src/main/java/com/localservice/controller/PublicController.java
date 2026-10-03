@@ -1,21 +1,48 @@
 package com.localservice.controller;
 
-import com.localservice.dto.*;
-import com.localservice.entity.*;
-import com.localservice.exception.ResourceNotFoundException;
-import com.localservice.repository.*;
-import com.localservice.util.ApiResponse;
-import com.localservice.util.PaginationResponse;
-import jakarta.validation.Valid;
-import org.springframework.data.domain.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.localservice.dto.AreaResponse;
+import com.localservice.dto.CategoryResponse;
+import com.localservice.dto.ComplaintRequest;
+import com.localservice.dto.ProviderProfileResponse;
+import com.localservice.dto.PublicProviderResponse;
+import com.localservice.dto.PublicServiceRequestRequest;
+import com.localservice.dto.ReviewRequest;
+import com.localservice.entity.Area;
+import com.localservice.entity.Category;
+import com.localservice.entity.Complaint;
+import com.localservice.entity.Review;
+import com.localservice.entity.ServiceProvider;
+import com.localservice.entity.ServiceRequest;
+import com.localservice.exception.ResourceNotFoundException;
+import com.localservice.repository.AreaRepository;
+import com.localservice.repository.CategoryRepository;
+import com.localservice.repository.ComplaintRepository;
+import com.localservice.repository.ReviewRepository;
+import com.localservice.repository.ServiceProviderRepository;
+import com.localservice.repository.ServiceRequestRepository;
+import com.localservice.util.ApiResponse;
+import com.localservice.util.PaginationResponse;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/public")
@@ -84,24 +111,63 @@ public class PublicController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String locality,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+
+        if ((latitude == null) != (longitude == null)) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>("error", "Latitude and longitude must be provided together"));
+        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id"));
         Page<ServiceProvider> result;
 
-        if (categoryId != null && city != null && !city.isBlank()) {
-            result = serviceProviderRepository.findByActiveTrueAndApprovalStatusAndCategoryIdAndCityIgnoreCase(true, "APPROVED", categoryId, city, pageable);
-        } else if (categoryId != null) {
-            result = serviceProviderRepository.findByActiveTrueAndApprovalStatusAndCategoryId(true, "APPROVED", categoryId, pageable);
-        } else if (city != null && !city.isBlank()) {
-            result = serviceProviderRepository.findByActiveTrueAndApprovalStatusAndCityIgnoreCase(true, "APPROVED", city, pageable);
-        } else if (locality != null && !locality.isBlank()) {
-            result = serviceProviderRepository.findByActiveTrueAndApprovalStatusAndLocalityIgnoreCase(true, "APPROVED", locality, pageable);
-        } else {
-            result = serviceProviderRepository.findByActiveTrueAndApprovalStatus(true, "APPROVED", pageable);
-        }
+        if (latitude != null) {
+            result = serviceProviderRepository.findNearbyApprovedProviders(
+                    "APPROVED", categoryId, blankToNull(city), blankToNull(locality), latitude, longitude,
+                    PageRequest.of(page, size));
+        } else if (categoryId != null && city != null && !city.isBlank()) {
 
+            result = serviceProviderRepository
+                    .findByActiveTrueAndApprovalStatusAndCategoryIdAndCityIgnoreCase(
+                            "APPROVED",
+                            categoryId,
+                            city,
+                            pageable);
+
+        } else if (categoryId != null) {
+
+            result = serviceProviderRepository
+                    .findByActiveTrueAndApprovalStatusAndCategoryId(
+                            "APPROVED",
+                            categoryId,
+                            pageable);
+
+        } else if (city != null && !city.isBlank()) {
+
+            result = serviceProviderRepository
+                    .findByActiveTrueAndApprovalStatusAndCityIgnoreCase(
+                            "APPROVED",
+                            city,
+                            pageable);
+
+        } else if (locality != null && !locality.isBlank()) {
+
+            result = serviceProviderRepository
+                    .findByActiveTrueAndApprovalStatusAndLocalityIgnoreCase(
+                            "APPROVED",
+                            locality,
+                            pageable);
+
+        } else {
+
+            result = serviceProviderRepository
+                    .findByActiveTrueAndApprovalStatus(
+                            "APPROVED",
+                            pageable);
+        }
         List<PublicProviderResponse> content = result.getContent().stream().map(provider -> {
             PublicProviderResponse dto = new PublicProviderResponse();
             dto.setId(provider.getId());
@@ -113,6 +179,10 @@ public class PublicController {
             dto.setExperience(provider.getExperience());
             dto.setRating(provider.getRating());
             dto.setPhoneNumber(provider.getPhoneNumber());
+            if (latitude != null && provider.getLatitude() != null && provider.getLongitude() != null) {
+                dto.setDistanceKm(distanceInKilometers(latitude, longitude,
+                        provider.getLatitude(), provider.getLongitude()));
+            }
             dto.setCreatedAt(provider.getCreatedAt());
             return dto;
         }).toList();
@@ -138,6 +208,9 @@ public class PublicController {
         dto.setCategoryName(provider.getCategory().getCategoryName());
         dto.setCity(provider.getCity());
         dto.setLocality(provider.getLocality());
+        dto.setPhoneNumber(provider.getPhoneNumber());
+        dto.setLatitude(provider.getLatitude());
+        dto.setLongitude(provider.getLongitude());
         dto.setWorkingHours(provider.getWorkingHours());
         dto.setExperience(provider.getExperience());
         dto.setRating(provider.getRating());
@@ -145,6 +218,20 @@ public class PublicController {
         dto.setServiceAreas(List.of(provider.getLocality(), provider.getCity()));
 
         return ResponseEntity.ok(new ApiResponse<>("success", "Provider profile retrieved successfully", dto));
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private double distanceInKilometers(double latitude, double longitude,
+                                        double providerLatitude, double providerLongitude) {
+        double latitudeDelta = Math.toRadians(providerLatitude - latitude);
+        double longitudeDelta = Math.toRadians(providerLongitude - longitude);
+        double haversine = Math.pow(Math.sin(latitudeDelta / 2), 2)
+                + Math.cos(Math.toRadians(latitude)) * Math.cos(Math.toRadians(providerLatitude))
+                * Math.pow(Math.sin(longitudeDelta / 2), 2);
+        return Math.round(6371 * 2 * Math.asin(Math.sqrt(haversine)) * 10.0) / 10.0;
     }
 
     @PostMapping("/service-requests")

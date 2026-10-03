@@ -1,6 +1,8 @@
 package com.localservice.util;
 
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
@@ -13,6 +15,7 @@ public class ApiResponse<T> {
     private String status;
     private String message;
     private T data;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime timestamp;
     private String path;
 

@@ -12,6 +12,7 @@ public class PublicProviderResponse {
     private Integer experience;
     private Double rating;
     private String phoneNumber;
+    private Double distanceKm;
     private LocalDateTime createdAt;
 
     public Long getId() { return id; }
@@ -32,6 +33,8 @@ public class PublicProviderResponse {
     public void setRating(Double rating) { this.rating = rating; }
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public Double getDistanceKm() { return distanceKm; }
+    public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

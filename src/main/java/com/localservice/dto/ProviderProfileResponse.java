@@ -9,6 +9,9 @@ public class ProviderProfileResponse {
     private String categoryName;
     private String city;
     private String locality;
+    private String phoneNumber;
+    private Double latitude;
+    private Double longitude;
     private String workingHours;
     private Integer experience;
     private Double rating;
@@ -27,6 +30,12 @@ public class ProviderProfileResponse {
     public void setCity(String city) { this.city = city; }
     public String getLocality() { return locality; }
     public void setLocality(String locality) { this.locality = locality; }
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
     public String getWorkingHours() { return workingHours; }
     public void setWorkingHours(String workingHours) { this.workingHours = workingHours; }
     public Integer getExperience() { return experience; }
